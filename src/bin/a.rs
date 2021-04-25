@@ -4,7 +4,7 @@ use std::fmt;
 
 const TIMELIMIT: f64 = 2.955;
 fn main() {
-    // let time = Timer::new();
+    let time = Timer::new();
     input! {
         n: usize,
         b: [i32; 3],
@@ -19,12 +19,13 @@ fn main() {
         }
     }
     let mut answer = Answer { ans };
-    let score = beam_search(&mut answer, &input);
-    // let score = simulated_annealing(&mut answer, &input, time);
+    // let score = beam_search(&mut answer, &input);
+    let score = simulated_annealing(&mut answer, &input, time);
     println!("{}", answer);
     eprintln!("{}", score);
 }
 
+#[allow(dead_code)]
 fn beam_search(ans: &mut Answer, input: &Input) -> i32 {
     // まだ貪欲
     let mut score = ans.compute_score(&input.b);
@@ -51,7 +52,7 @@ fn beam_search(ans: &mut Answer, input: &Input) -> i32 {
 fn simulated_annealing(ans: &mut Answer, input: &Input, time: Timer) -> i32 {
     let mut rng = rand_pcg::Pcg64Mcg::new(854091);
 
-    const STARTTEMP: f64 = 2e4;
+    const STARTTEMP: f64 = 5e4;
     const ENDTEMP: f64 = 0.1;
 
     let mut temp = STARTTEMP;
@@ -82,8 +83,7 @@ fn simulated_annealing(ans: &mut Answer, input: &Input, time: Timer) -> i32 {
         let w = rng.gen_range(0, input.n);
         let change_num = rng.gen_range(input.ls[h][w], input.rs[h][w] + 1);
         let before_num = ans.ans[h][w];
-        ans.ans[h][w] = change_num;
-        let new_score = ans.compute_score(&input.b);
+        let new_score = ans.adjust_score(score, change_num, h, w, &input.b);
         prob = f64::exp((new_score - score) as f64 / temp);
 
         if score <= new_score || (new_score > 0 && rng.gen_bool(prob)) {
