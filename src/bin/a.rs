@@ -4,7 +4,7 @@ use std::fmt;
 
 const TIMELIMIT: f64 = 2.955;
 fn main() {
-    let time = Timer::new();
+    // let time = Timer::new();
     input! {
         n: usize,
         b: [i32; 3],
@@ -23,7 +23,6 @@ fn main() {
     // let score = simulated_annealing(&mut answer, &input, time);
     println!("{}", answer);
     eprintln!("{}", score);
-    eprintln!("{}", time.get_time());
 }
 
 fn beam_search(ans: &mut Answer, input: &Input) -> i32 {
@@ -31,15 +30,15 @@ fn beam_search(ans: &mut Answer, input: &Input) -> i32 {
     let mut score = ans.compute_score(&input.b);
     for h in 0..input.n {
         for w in 0..input.n {
-            let before_num = ans.ans[h][w];
-            let mut ac_num = before_num;
+            let mut ac_num = ans.ans[h][w];
             // (h,w)マスについて一番点数が高い盤面を探索
             for num in input.ls[h][w]..input.rs[h][w] + 1 {
-                ans.ans[h][w] = num;
-                let new_score = ans.compute_score(&input.b);
+                let new_score = ans.adjust_score(score, num, h, w, &input.b);
                 if score < new_score {
                     score = new_score;
                     ac_num = num;
+                } else {
+                    ans.ans[h][w] = ac_num;
                 }
             }
             ans.ans[h][w] = ac_num;
@@ -118,40 +117,133 @@ impl Answer {
     /// O(n^3)で計算したスコアを返す
     fn compute_score(&self, b: &Vec<i32>) -> i32 {
         let n = self.ans.len();
-        let mut a = vec![0; 3];
+        let mut score = 0;
         for h in 0..n {
-            let mut cul = vec![0; n + 1]; // 累積和配列
-            for i in 0..n {
-                cul[i + 1] = self.ans[h][i] + cul[i];
-            }
-            for wl in 0..n {
-                for wr in wl + 1..n + 1 {
-                    let num_sum = cul[wr] - cul[wl];
-                    for (idx, &like_num) in b.iter().enumerate() {
-                        if like_num == num_sum {
-                            a[idx] += 1;
-                        }
+            for w in 0..n {
+                let mut now = 0;
+                for i in w..n {
+                    now += self.ans[h][i];
+                    if now == b[0] {
+                        score += b[0];
+                    }
+                    if now == b[1] {
+                        score += b[1];
+                    }
+                    if now == b[2] {
+                        score += b[2];
+                    }
+                    if now > b[2] {
+                        break;
                     }
                 }
             }
         }
+        for h in 0..n {
+            for w in 0..n {
+                let mut now = 0;
+                for i in h..n {
+                    now += self.ans[i][w];
+                    if now == b[0] {
+                        score += b[0];
+                    }
+                    if now == b[1] {
+                        score += b[1];
+                    }
+                    if now == b[2] {
+                        score += b[2];
+                    }
+                    if now > b[2] {
+                        break;
+                    }
+                }
+            }
+        }
+        score
+    }
+
+    fn adjust_score(&mut self, score: i32, chnum: i32, ch: usize, cw: usize, b: &Vec<i32>) -> i32 {
+        let n = self.ans.len();
+        let mut loss_score = 0;
         for w in 0..n {
-            let mut cul = vec![0; n + 1];
-            for i in 0..n {
-                cul[i + 1] = self.ans[i][w] + cul[i];
-            }
-            for hl in 0..n {
-                for hr in hl + 1..n + 1 {
-                    let num_sum = cul[hr] - cul[hl];
-                    for (idx, &like_num) in b.iter().enumerate() {
-                        if like_num == num_sum {
-                            a[idx] += 1;
-                        }
-                    }
+            let mut now = 0;
+            for i in w..n {
+                now += self.ans[ch][i];
+                if now == b[0] {
+                    loss_score += b[0];
+                }
+                if now == b[1] {
+                    loss_score += b[1];
+                }
+                if now == b[2] {
+                    loss_score += b[2];
+                }
+                if now > b[2] {
+                    break;
                 }
             }
         }
-        a.iter().zip(b.iter()).map(|(a, b)| a * b).sum()
+
+        for h in 0..n {
+            let mut now = 0;
+            for i in h..n {
+                now += self.ans[i][cw];
+                if now == b[0] {
+                    loss_score += b[0];
+                }
+                if now == b[1] {
+                    loss_score += b[1];
+                }
+                if now == b[2] {
+                    loss_score += b[2];
+                }
+                if now > b[2] {
+                    break;
+                }
+            }
+        }
+
+        self.ans[ch][cw] = chnum;
+
+        let mut get_score = 0;
+        for w in 0..n {
+            let mut now = 0;
+            for i in w..n {
+                now += self.ans[ch][i];
+                if now == b[0] {
+                    get_score += b[0];
+                }
+                if now == b[1] {
+                    get_score += b[1];
+                }
+                if now == b[2] {
+                    get_score += b[2];
+                }
+                if now > b[2] {
+                    break;
+                }
+            }
+        }
+
+        for h in 0..n {
+            let mut now = 0;
+            for i in h..n {
+                now += self.ans[i][cw];
+                if now == b[0] {
+                    get_score += b[0];
+                }
+                if now == b[1] {
+                    get_score += b[1];
+                }
+                if now == b[2] {
+                    get_score += b[2];
+                }
+                if now > b[2] {
+                    break;
+                }
+            }
+        }
+
+        score - loss_score + get_score
     }
 }
 
