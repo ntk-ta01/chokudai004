@@ -1,22 +1,90 @@
 use proconio::input;
+use rand::Rng;
 use std::fmt;
+
+const TIMELIMIT: f64 = 2.955;
 fn main() {
+    let time = Timer::new();
     input! {
         n: usize,
         b: [i32; 3],
         ls: [[i32; n]; n],
         rs: [[i32; n]; n],
     }
-    let mut ans = vec![vec![0; n]; n];
-    for (h, col) in ls.iter().enumerate() {
+    let input = Input { n, b, ls, rs };
+    let mut ans = vec![vec![0; input.n]; input.n];
+    for (h, col) in input.ls.iter().enumerate() {
         for (w, &ele) in col.iter().enumerate() {
             ans[h][w] = ele;
         }
     }
-    let answer = Answer { ans };
+    let mut answer = Answer { ans };
+    let score = simulated_annealing(&mut answer, &input, time);
     println!("{}", answer);
+    eprintln!("{}", score);
 }
 
+fn simulated_annealing(ans: &mut Answer, input: &Input, time: Timer) -> i32 {
+    let mut rng = rand_pcg::Pcg64Mcg::new(854091);
+
+    const STARTTEMP: f64 = 2e4;
+    const ENDTEMP: f64 = 0.1;
+
+    let mut temp = STARTTEMP;
+    let mut prob: f64;
+
+    let mut score = ans.compute_score(&input.b);
+
+    let mut best_score = score;
+    let mut best_answer = ans.clone();
+
+    let mut loop_count = 0;
+
+    loop {
+        loop_count += 1;
+        if loop_count >= 100 {
+            loop_count = 0;
+            let passed = time.get_time() / TIMELIMIT;
+            if passed >= 1.0 {
+                // println!("{} {}", temp, score);
+                break;
+            }
+            temp = STARTTEMP.powf(1.0 - passed) * ENDTEMP.powf(passed);
+        }
+
+        // ランダムに1マス選んで
+        // ランダムに数を変更
+        let h = rng.gen_range(0, input.n);
+        let w = rng.gen_range(0, input.n);
+        let change_num = rng.gen_range(input.ls[h][w], input.rs[h][w] + 1);
+        let before_num = ans.ans[h][w];
+        ans.ans[h][w] = change_num;
+        let new_score = ans.compute_score(&input.b);
+        prob = f64::exp((new_score - score) as f64 / temp);
+
+        if score <= new_score || (new_score > 0 && rng.gen_bool(prob)) {
+            score = new_score;
+        } else {
+            ans.ans[h][w] = before_num;
+        }
+
+        if best_score < score {
+            best_score = score;
+            best_answer = ans.clone();
+        }
+    }
+    *ans = best_answer;
+    best_score
+}
+
+struct Input {
+    n: usize,
+    b: Vec<i32>,
+    ls: Vec<Vec<i32>>,
+    rs: Vec<Vec<i32>>,
+}
+
+#[derive(Clone)]
 struct Answer {
     ans: Vec<Vec<i32>>,
 }
@@ -77,6 +145,29 @@ impl fmt::Display for Answer {
             }
         }
         write!(f, "{}", ret)
+    }
+}
+
+pub fn get_time() -> f64 {
+    let t = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap();
+    t.as_secs() as f64 + t.subsec_nanos() as f64 * 1e-9
+}
+
+struct Timer {
+    start_time: f64,
+}
+
+impl Timer {
+    fn new() -> Timer {
+        Timer {
+            start_time: get_time(),
+        }
+    }
+
+    fn get_time(&self) -> f64 {
+        get_time() - self.start_time
     }
 }
 
