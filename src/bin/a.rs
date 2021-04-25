@@ -5,7 +5,7 @@ use std::fmt;
 
 const TIMELIMIT: f64 = 2.955;
 fn main() {
-    // let time = Timer::new();
+    let time = Timer::new();
     input! {
         n: usize,
         b: [i32; 3],
@@ -20,8 +20,8 @@ fn main() {
     //     }
     // }
     let mut answer = Answer { ans };
-    let score = beam_search(&mut answer, &input);
-    // let score = simulated_annealing(&mut answer, &input, time);
+    // let score = beam_search(&mut answer, &input);
+    let score = simulated_annealing(&mut answer, &input, time);
     println!("{}", answer);
     eprintln!("{}", score);
     // eprintln!("{}", time.get_time());
@@ -62,8 +62,8 @@ fn beam_search(ans: &mut Answer, input: &Input) -> i32 {
 fn simulated_annealing(ans: &mut Answer, input: &Input, time: Timer) -> i32 {
     let mut rng = rand_pcg::Pcg64Mcg::new(854091);
 
-    const STARTTEMP: f64 = 5e4;
-    const ENDTEMP: f64 = 0.1;
+    const STARTTEMP: f64 = 140.5;
+    const ENDTEMP: f64 = 5.0;
 
     let mut temp = STARTTEMP;
     let mut prob: f64;
@@ -84,6 +84,7 @@ fn simulated_annealing(ans: &mut Answer, input: &Input, time: Timer) -> i32 {
                 // println!("{} {}", temp, score);
                 break;
             }
+            // println!("{} {}", temp, score);
             temp = STARTTEMP.powf(1.0 - passed) * ENDTEMP.powf(passed);
         }
 
