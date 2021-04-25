@@ -19,11 +19,36 @@ fn main() {
         }
     }
     let mut answer = Answer { ans };
-    let score = simulated_annealing(&mut answer, &input, time);
+    let score = beam_search(&mut answer, &input);
+    // let score = simulated_annealing(&mut answer, &input, time);
     println!("{}", answer);
     eprintln!("{}", score);
+    eprintln!("{}", time.get_time());
 }
 
+fn beam_search(ans: &mut Answer, input: &Input) -> i32 {
+    // まだ貪欲
+    let mut score = ans.compute_score(&input.b);
+    for h in 0..input.n {
+        for w in 0..input.n {
+            let before_num = ans.ans[h][w];
+            let mut ac_num = before_num;
+            // (h,w)マスについて一番点数が高い盤面を探索
+            for num in input.ls[h][w]..input.rs[h][w] + 1 {
+                ans.ans[h][w] = num;
+                let new_score = ans.compute_score(&input.b);
+                if score < new_score {
+                    score = new_score;
+                    ac_num = num;
+                }
+            }
+            ans.ans[h][w] = ac_num;
+        }
+    }
+    score
+}
+
+#[allow(dead_code)]
 fn simulated_annealing(ans: &mut Answer, input: &Input, time: Timer) -> i32 {
     let mut rng = rand_pcg::Pcg64Mcg::new(854091);
 
@@ -160,6 +185,7 @@ struct Timer {
 }
 
 impl Timer {
+    #[allow(dead_code)]
     fn new() -> Timer {
         Timer {
             start_time: get_time(),
