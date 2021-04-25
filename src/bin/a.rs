@@ -1,10 +1,11 @@
 use proconio::input;
 use rand::Rng;
+use std::cmp;
 use std::fmt;
 
 const TIMELIMIT: f64 = 2.955;
 fn main() {
-    let time = Timer::new();
+    // let time = Timer::new();
     input! {
         n: usize,
         b: [i32; 3],
@@ -12,40 +13,49 @@ fn main() {
         rs: [[i32; n]; n],
     }
     let input = Input { n, b, ls, rs };
-    let mut ans = vec![vec![0; input.n]; input.n];
-    for (h, col) in input.ls.iter().enumerate() {
-        for (w, &ele) in col.iter().enumerate() {
-            ans[h][w] = ele;
-        }
-    }
+    let ans = vec![vec![0; input.n]; input.n];
+    // for (h, col) in input.ls.iter().enumerate() {
+    //     for (w, &ele) in col.iter().enumerate() {
+    //         ans[h][w] = ele;
+    //     }
+    // }
     let mut answer = Answer { ans };
-    // let score = beam_search(&mut answer, &input);
-    let score = simulated_annealing(&mut answer, &input, time);
+    let score = beam_search(&mut answer, &input);
+    // let score = simulated_annealing(&mut answer, &input, time);
     println!("{}", answer);
     eprintln!("{}", score);
+    // eprintln!("{}", time.get_time());
 }
 
 #[allow(dead_code)]
 fn beam_search(ans: &mut Answer, input: &Input) -> i32 {
-    // まだ貪欲
-    let mut score = ans.compute_score(&input.b);
+    let mut states = vec![State {
+        state: (ans.compute_score(&input.b), ans.clone()),
+    }];
+    let beam_width = 120;
     for h in 0..input.n {
         for w in 0..input.n {
-            let mut ac_num = ans.ans[h][w];
-            // (h,w)マスについて一番点数が高い盤面を探索
-            for num in input.ls[h][w]..input.rs[h][w] + 1 {
-                let new_score = ans.adjust_score(score, num, h, w, &input.b);
-                if score < new_score {
-                    score = new_score;
-                    ac_num = num;
-                } else {
-                    ans.ans[h][w] = ac_num;
+            let mut new_states = vec![];
+            while !states.is_empty() {
+                let state = states.pop().unwrap();
+                let mut score = state.state.0;
+                let mut ans = state.state.1;
+                for num in input.ls[h][w]..input.rs[h][w] + 1 {
+                    score = ans.adjust_score(score, num, h, w, &input.b);
+                    new_states.push(State {
+                        state: (score, ans.clone()),
+                    });
                 }
             }
-            ans.ans[h][w] = ac_num;
+            states = new_states;
+            if beam_width < states.len() {
+                states.sort_by(|a, b| a.cmp(b).reverse());
+                states = states[..beam_width].to_vec();
+            }
         }
     }
-    score
+    *ans = states[0].state.1.clone();
+    states[0].state.0
 }
 
 #[allow(dead_code)]
@@ -108,7 +118,7 @@ struct Input {
     rs: Vec<Vec<i32>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct Answer {
     ans: Vec<Vec<i32>>,
 }
@@ -122,6 +132,9 @@ impl Answer {
             for w in 0..n {
                 let mut now = 0;
                 for i in w..n {
+                    if self.ans[h][w] == 0 {
+                        continue;
+                    }
                     now += self.ans[h][i];
                     if now == b[0] {
                         score += b[0];
@@ -142,6 +155,9 @@ impl Answer {
             for w in 0..n {
                 let mut now = 0;
                 for i in h..n {
+                    if self.ans[h][w] == 0 {
+                        continue;
+                    }
                     now += self.ans[i][w];
                     if now == b[0] {
                         score += b[0];
@@ -167,6 +183,9 @@ impl Answer {
         for w in 0..n {
             let mut now = 0;
             for i in w..n {
+                if self.ans[ch][i] == 0 {
+                    continue;
+                }
                 now += self.ans[ch][i];
                 if now == b[0] {
                     loss_score += b[0];
@@ -186,6 +205,9 @@ impl Answer {
         for h in 0..n {
             let mut now = 0;
             for i in h..n {
+                if self.ans[i][cw] == 0 {
+                    continue;
+                }
                 now += self.ans[i][cw];
                 if now == b[0] {
                     loss_score += b[0];
@@ -208,6 +230,9 @@ impl Answer {
         for w in 0..n {
             let mut now = 0;
             for i in w..n {
+                if self.ans[ch][i] == 0 {
+                    continue;
+                }
                 now += self.ans[ch][i];
                 if now == b[0] {
                     get_score += b[0];
@@ -227,6 +252,9 @@ impl Answer {
         for h in 0..n {
             let mut now = 0;
             for i in h..n {
+                if self.ans[i][cw] == 0 {
+                    continue;
+                }
                 now += self.ans[i][cw];
                 if now == b[0] {
                     get_score += b[0];
@@ -262,6 +290,28 @@ impl fmt::Display for Answer {
             }
         }
         write!(f, "{}", ret)
+    }
+}
+#[derive(Clone, Eq)]
+struct State {
+    state: (i32, Answer),
+}
+
+impl cmp::Ord for State {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.state.0.cmp(&other.state.0)
+    }
+}
+
+impl cmp::PartialOrd for State {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl cmp::PartialEq for State {
+    fn eq(&self, other: &Self) -> bool {
+        self.state.0 == other.state.0
     }
 }
 
